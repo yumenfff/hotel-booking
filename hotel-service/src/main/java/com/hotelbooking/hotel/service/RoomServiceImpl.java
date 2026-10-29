@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class RoomServiceImpl implements RoomService {
 
   private static final Sort BY_ID = Sort.by(Sort.Direction.ASC, "id");
+  private static final Sort BY_TIMES_BOOKED_THEN_ID =
+      Sort.by(Sort.Direction.ASC, "timesBooked").and(BY_ID);
 
   private final RoomRepository roomRepository;
   private final HotelRepository hotelRepository;
@@ -41,11 +43,12 @@ public class RoomServiceImpl implements RoomService {
 
   @Override
   public List<RoomResponse> findAvailable(RoomSearchCriteria criteria) {
-    return roomRepository
-        .search(criteria.hotelId(), criteria.minCapacity(), criteria.maxPrice(), BY_ID)
-        .stream()
-        .map(roomMapper::toResponse)
-        .toList();
+    return search(criteria, BY_ID);
+  }
+
+  @Override
+  public List<RoomResponse> findRecommended(RoomSearchCriteria criteria) {
+    return search(criteria, BY_TIMES_BOOKED_THEN_ID);
   }
 
   @Override
@@ -61,6 +64,14 @@ public class RoomServiceImpl implements RoomService {
   @Transactional
   public void delete(Long id) {
     roomRepository.delete(findOrThrow(id));
+  }
+
+  private List<RoomResponse> search(RoomSearchCriteria criteria, Sort sort) {
+    return roomRepository
+        .search(criteria.hotelId(), criteria.minCapacity(), criteria.maxPrice(), sort)
+        .stream()
+        .map(roomMapper::toResponse)
+        .toList();
   }
 
   private Room findOrThrow(Long id) {

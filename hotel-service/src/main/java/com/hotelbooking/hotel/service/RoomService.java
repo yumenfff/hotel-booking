@@ -13,6 +13,8 @@ public interface RoomService {
 
   List<RoomResponse> findAvailable(RoomSearchCriteria criteria);
 
+  List<RoomResponse> findRecommended(RoomSearchCriteria criteria);
+
   RoomResponse update(Long id, RoomRequest request);
 
   void delete(Long id);
