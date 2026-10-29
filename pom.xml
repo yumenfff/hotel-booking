@@ -19,6 +19,7 @@
     <modules>
         <module>eureka-server</module>
         <module>hotel-service</module>
+        <module>booking-service</module>
     </modules>
 
     <properties>
