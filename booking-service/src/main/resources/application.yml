@@ -15,3 +15,7 @@ spring:
   h2:
     console:
       enabled: true
+
+jwt:
+  secret: hotel-booking-secret-key-for-jwt-signing-2026-change-me
+  expiration-minutes: 60

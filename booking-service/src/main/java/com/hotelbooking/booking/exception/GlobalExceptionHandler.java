@@ -7,6 +7,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -54,6 +55,18 @@ public class GlobalExceptionHandler {
             .map(e -> e.getField() + ": " + e.getDefaultMessage())
             .collect(Collectors.joining("; "));
     return build(HttpStatus.BAD_REQUEST, message, req);
+  }
+
+  @ExceptionHandler(AuthenticationFailedException.class)
+  public ResponseEntity<ErrorDto> handleAuthFailed(
+      AuthenticationFailedException ex, HttpServletRequest req) {
+    return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req);
+  }
+
+  @ExceptionHandler(AccessDeniedException.class)
+  public ResponseEntity<ErrorDto> handleAccessDenied(
+      AccessDeniedException ex, HttpServletRequest req) {
+    return build(HttpStatus.FORBIDDEN, "Access denied", req);
   }
 
   @ExceptionHandler(Exception.class)
