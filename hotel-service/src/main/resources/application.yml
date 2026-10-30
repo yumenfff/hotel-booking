@@ -16,5 +16,12 @@ spring:
     console:
       enabled: true
 
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
 jwt:
   secret: hotel-booking-secret-key-for-jwt-signing-2026-change-me
