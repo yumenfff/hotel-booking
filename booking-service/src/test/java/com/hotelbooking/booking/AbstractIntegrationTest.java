@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.hotelbooking.booking.entity.Role;
 import com.hotelbooking.booking.entity.User;
+import com.hotelbooking.booking.repository.BookingRepository;
 import com.hotelbooking.booking.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,10 +26,12 @@ public abstract class AbstractIntegrationTest {
 
   @Autowired protected MockMvc mockMvc;
   @Autowired protected UserRepository userRepository;
+  @Autowired protected BookingRepository bookingRepository;
   @Autowired private PasswordEncoder passwordEncoder;
 
   @BeforeEach
   protected void cleanDatabase() {
+    bookingRepository.deleteAll();
     userRepository.deleteAll();
   }
 
