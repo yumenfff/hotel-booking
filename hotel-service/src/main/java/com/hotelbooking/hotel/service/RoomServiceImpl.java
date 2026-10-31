@@ -5,11 +5,15 @@ import com.hotelbooking.hotel.dto.RoomResponse;
 import com.hotelbooking.hotel.dto.RoomSearchCriteria;
 import com.hotelbooking.hotel.entity.Hotel;
 import com.hotelbooking.hotel.entity.Room;
+import com.hotelbooking.hotel.exception.BadRequestException;
 import com.hotelbooking.hotel.exception.NotFoundException;
 import com.hotelbooking.hotel.mapper.RoomMapper;
 import com.hotelbooking.hotel.repository.HotelRepository;
 import com.hotelbooking.hotel.repository.RoomRepository;
+import com.hotelbooking.hotel.repository.RoomReservationRepository;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -26,6 +30,7 @@ public class RoomServiceImpl implements RoomService {
 
   private final RoomRepository roomRepository;
   private final HotelRepository hotelRepository;
+  private final RoomReservationRepository reservationRepository;
   private final RoomMapper roomMapper;
 
   @Override
@@ -67,11 +72,26 @@ public class RoomServiceImpl implements RoomService {
   }
 
   private List<RoomResponse> search(RoomSearchCriteria criteria, Sort sort) {
-    return roomRepository
-        .search(criteria.hotelId(), criteria.minCapacity(), criteria.maxPrice(), sort)
-        .stream()
-        .map(roomMapper::toResponse)
-        .toList();
+    validateDates(criteria);
+    List<Room> rooms =
+        roomRepository.search(
+            criteria.hotelId(), criteria.minCapacity(), criteria.maxPrice(), sort);
+    if (criteria.startDate() != null) {
+      Set<Long> busy =
+          new HashSet<>(
+              reservationRepository.findBusyRoomIds(criteria.startDate(), criteria.endDate()));
+      rooms = rooms.stream().filter(room -> !busy.contains(room.getId())).toList();
+    }
+    return rooms.stream().map(roomMapper::toResponse).toList();
+  }
+
+  private void validateDates(RoomSearchCriteria criteria) {
+    if ((criteria.startDate() == null) != (criteria.endDate() == null)) {
+      throw new BadRequestException("startDate and endDate must be provided together");
+    }
+    if (criteria.startDate() != null && !criteria.startDate().isBefore(criteria.endDate())) {
+      throw new BadRequestException("startDate must be before endDate");
+    }
   }
 
   private Room findOrThrow(Long id) {

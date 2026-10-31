@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.hotelbooking.hotel.entity.Hotel;
+import com.hotelbooking.hotel.entity.Room;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
@@ -56,6 +58,33 @@ class RoomControllerTest extends AbstractIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$", hasSize(1)))
         .andExpect(jsonPath("$[0].number").value("102"));
+  }
+
+  @Test
+  void recommend_withDates_skipsRoomsBusyForThatPeriod() throws Exception {
+    // given
+    Hotel hotel = createHotel("Grand");
+    Room busy = createRoom(hotel, "101", 0);
+    createRoom(hotel, "102", 0);
+    holdRoom(busy, LocalDate.parse("2030-01-09"), LocalDate.parse("2030-01-11"), "req-1");
+
+    // when / then
+    mockMvc
+        .perform(
+            get("/api/rooms/recommend")
+                .with(user())
+                .param("startDate", "2030-01-10")
+                .param("endDate", "2030-01-12"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$", hasSize(1)))
+        .andExpect(jsonPath("$[0].number").value("102"));
+  }
+
+  @Test
+  void recommend_withOnlyStartDate_returns400() throws Exception {
+    mockMvc
+        .perform(get("/api/rooms/recommend").with(user()).param("startDate", "2030-01-10"))
+        .andExpect(status().isBadRequest());
   }
 
   @Test

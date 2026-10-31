@@ -3,10 +3,14 @@ package com.hotelbooking.hotel;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 import com.hotelbooking.hotel.entity.Hotel;
+import com.hotelbooking.hotel.entity.ReservationStatus;
 import com.hotelbooking.hotel.entity.Room;
+import com.hotelbooking.hotel.entity.RoomReservation;
 import com.hotelbooking.hotel.repository.HotelRepository;
 import com.hotelbooking.hotel.repository.RoomRepository;
+import com.hotelbooking.hotel.repository.RoomReservationRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -24,9 +28,11 @@ public abstract class AbstractIntegrationTest {
   @Autowired protected MockMvc mockMvc;
   @Autowired protected HotelRepository hotelRepository;
   @Autowired protected RoomRepository roomRepository;
+  @Autowired protected RoomReservationRepository reservationRepository;
 
   @BeforeEach
   protected void cleanDatabase() {
+    reservationRepository.deleteAll();
     roomRepository.deleteAll();
     hotelRepository.deleteAll();
   }
@@ -60,5 +66,19 @@ public abstract class AbstractIntegrationTest {
     room.setTimesBooked(timesBooked);
     room.setAvailable(available);
     return roomRepository.save(room);
+  }
+
+  protected RoomReservation holdRoom(Room room, LocalDate start, LocalDate end, String requestId) {
+    RoomReservation reservation = new RoomReservation();
+    reservation.setRoom(room);
+    reservation.setRequestId(requestId);
+    reservation.setStartDate(start);
+    reservation.setEndDate(end);
+    reservation.setStatus(ReservationStatus.HELD);
+    return reservationRepository.save(reservation);
+  }
+
+  protected int timesBooked(Room room) {
+    return roomRepository.findById(room.getId()).orElseThrow().getTimesBooked();
   }
 }
