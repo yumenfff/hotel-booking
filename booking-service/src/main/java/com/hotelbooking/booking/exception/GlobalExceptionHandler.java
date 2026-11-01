@@ -28,6 +28,12 @@ public class GlobalExceptionHandler {
     return build(HttpStatus.CONFLICT, ex.getMessage(), req);
   }
 
+  @ExceptionHandler(ServiceUnavailableException.class)
+  public ResponseEntity<ErrorDto> handleUnavailable(
+      ServiceUnavailableException ex, HttpServletRequest req) {
+    return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), req);
+  }
+
   @ExceptionHandler(DataIntegrityViolationException.class)
   public ResponseEntity<ErrorDto> handleIntegrity(
       DataIntegrityViolationException ex, HttpServletRequest req) {

@@ -21,10 +21,12 @@ public class BookingStateService {
   private final BookingRepository bookingRepository;
 
   @Transactional
-  public Booking createPending(User user, BookingCreateRequest request, String requestId) {
+  public Booking createPending(
+      User user, BookingCreateRequest request, String requestId, Long roomId) {
     Booking booking = new Booking();
     booking.setUser(user);
-    booking.setRoomId(request.roomId());
+    booking.setRoomId(roomId);
+    booking.setAutoSelect(request.autoSelect());
     booking.setStartDate(request.startDate());
     booking.setEndDate(request.endDate());
     booking.setStatus(BookingStatus.PENDING);
@@ -37,6 +39,21 @@ public class BookingStateService {
         saved.getId(),
         saved.getRequestId(),
         saved.getStatus());
+    return saved;
+  }
+
+  @Transactional
+  public Booking assignRoom(Long bookingId, Long roomId) {
+    Booking booking = findOrThrow(bookingId);
+    requirePending(booking, "assigned to another room");
+    booking.setRoomId(roomId);
+    touch(booking);
+    Booking saved = bookingRepository.saveAndFlush(booking);
+    log.info(
+        "Booking room assigned: bookingId={}, requestId={}, roomId={}",
+        saved.getId(),
+        saved.getRequestId(),
+        saved.getRoomId());
     return saved;
   }
 

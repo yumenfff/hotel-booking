@@ -1,5 +1,9 @@
 package com.hotelbooking.booking.service;
 
+import com.hotelbooking.booking.client.HotelClient;
+import com.hotelbooking.booking.client.HotelConflictException;
+import com.hotelbooking.booking.client.HotelRejectedException;
+import com.hotelbooking.booking.client.HotelUnavailableException;
 import com.hotelbooking.booking.dto.BookingCreateRequest;
 import com.hotelbooking.booking.dto.BookingResponse;
 import com.hotelbooking.booking.dto.PageResponse;
@@ -9,6 +13,7 @@ import com.hotelbooking.booking.entity.User;
 import com.hotelbooking.booking.exception.BadRequestException;
 import com.hotelbooking.booking.exception.ConflictException;
 import com.hotelbooking.booking.exception.NotFoundException;
+import com.hotelbooking.booking.exception.ServiceUnavailableException;
 import com.hotelbooking.booking.mapper.BookingMapper;
 import com.hotelbooking.booking.repository.BookingRepository;
 import com.hotelbooking.booking.repository.UserRepository;
@@ -30,12 +35,14 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class BookingServiceImpl implements BookingService {
 
+  private static final String NO_ROOMS_MESSAGE = "No rooms are available for the requested dates";
   private static final List<BookingStatus> ACTIVE_STATUSES =
       List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
 
   private final BookingRepository bookingRepository;
   private final UserRepository userRepository;
   private final BookingStateService bookingStateService;
+  private final HotelClient hotelClient;
   private final BookingMapper bookingMapper;
 
   @Override
@@ -53,22 +60,38 @@ public class BookingServiceImpl implements BookingService {
       return bookingMapper.toResponse(existing);
     }
 
-    if (bookingRepository.existsOverlappingBooking(
-        request.roomId(), request.startDate(), request.endDate(), ACTIVE_STATUSES)) {
+    List<Long> candidates = candidates(request);
+    if (candidates.isEmpty()) {
+      throw new ConflictException(NO_ROOMS_MESSAGE);
+    }
+    if (!request.autoSelect()
+        && bookingRepository.existsOverlappingBooking(
+            request.roomId(), request.startDate(), request.endDate(), ACTIVE_STATUSES)) {
       throw new ConflictException(
           "Room " + request.roomId() + " is already booked for the requested dates");
     }
 
     Booking pending;
     try {
-      pending = bookingStateService.createPending(user, request, requestId);
+      pending = bookingStateService.createPending(user, request, requestId, candidates.get(0));
     } catch (DataIntegrityViolationException ex) {
       Booking concurrent =
           bookingRepository.findByUserIdAndRequestId(userId, requestId).orElseThrow(() -> ex);
       ensureSameRequest(concurrent, request);
       return bookingMapper.toResponse(concurrent);
     }
-    return bookingMapper.toResponse(bookingStateService.confirm(pending.getId()));
+
+    for (Long roomId : candidates) {
+      if (!Objects.equals(pending.getRoomId(), roomId)) {
+        pending = bookingStateService.assignRoom(pending.getId(), roomId);
+      }
+      if (lockRoom(pending, roomId, request)) {
+        return bookingMapper.toResponse(confirmOrCompensate(pending, roomId));
+      }
+    }
+
+    bookingStateService.cancel(pending.getId(), "No candidate room is available");
+    throw new ConflictException(NO_ROOMS_MESSAGE);
   }
 
   @Override
@@ -103,8 +126,83 @@ public class BookingServiceImpl implements BookingService {
     if (booking.getStatus() == BookingStatus.PENDING) {
       throw new ConflictException("Pending booking cannot be cancelled");
     }
+    try {
+      hotelClient.release(booking.getRoomId(), hotelRequestId(booking.getId()));
+    } catch (HotelConflictException ex) {
+      throw new ConflictException(ex.getMessage());
+    } catch (HotelRejectedException | HotelUnavailableException ex) {
+      throw unavailable(ex);
+    }
     bookingStateService.cancel(
         booking.getId(), isAdmin(jwt) ? "Cancelled by administrator" : "Cancelled by user");
+  }
+
+  private List<Long> candidates(BookingCreateRequest request) {
+    return request.autoSelect()
+        ? hotelClient.findRecommendedRoomIds(request.startDate(), request.endDate())
+        : List.of(request.roomId());
+  }
+
+  private boolean lockRoom(Booking pending, Long roomId, BookingCreateRequest request) {
+    try {
+      hotelClient.confirmAvailability(
+          roomId,
+          hotelRequestId(pending.getId()),
+          pending.getId(),
+          request.startDate(),
+          request.endDate());
+      return true;
+    } catch (HotelConflictException ex) {
+      log.info(
+          "Booking candidate rejected: bookingId={}, requestId={}, roomId={}",
+          pending.getId(),
+          pending.getRequestId(),
+          roomId);
+      if (request.autoSelect()) {
+        return false;
+      }
+      bookingStateService.cancel(pending.getId(), ex.getMessage());
+      throw new ConflictException(ex.getMessage());
+    } catch (HotelRejectedException ex) {
+      bookingStateService.cancel(pending.getId(), ex.getMessage());
+      if (ex.getStatus() == 404) {
+        throw new NotFoundException(ex.getMessage());
+      }
+      throw unavailable(ex);
+    } catch (HotelUnavailableException ex) {
+      compensate(pending, roomId);
+      bookingStateService.cancel(pending.getId(), ex.getMessage());
+      throw unavailable(ex);
+    }
+  }
+
+  private Booking confirmOrCompensate(Booking pending, Long roomId) {
+    try {
+      return bookingStateService.confirm(pending.getId());
+    } catch (RuntimeException ex) {
+      log.error(
+          "Local confirmation failed after room lock: bookingId={}, requestId={}, roomId={}",
+          pending.getId(),
+          pending.getRequestId(),
+          roomId,
+          ex);
+      compensate(pending, roomId);
+      bookingStateService.cancel(pending.getId(), "Failed to confirm booking locally");
+      throw ex;
+    }
+  }
+
+  private void compensate(Booking booking, Long roomId) {
+    try {
+      hotelClient.release(roomId, hotelRequestId(booking.getId()));
+    } catch (RuntimeException ex) {
+      log.warn(
+          "Booking compensation failed: bookingId={}, requestId={}, roomId={}",
+          booking.getId(),
+          booking.getRequestId(),
+          roomId,
+          ex);
+    }
   }
 
   private Booking loadAccessible(Long id, Jwt jwt) {
@@ -119,11 +217,16 @@ public class BookingServiceImpl implements BookingService {
   }
 
   private void ensureSameRequest(Booking booking, BookingCreateRequest request) {
-    if (!Objects.equals(booking.getRoomId(), request.roomId())
+    if (booking.isAutoSelect() != request.autoSelect()
+        || (!request.autoSelect() && !Objects.equals(booking.getRoomId(), request.roomId()))
         || !Objects.equals(booking.getStartDate(), request.startDate())
         || !Objects.equals(booking.getEndDate(), request.endDate())) {
       throw new ConflictException("RequestId was already used with different booking parameters");
     }
+  }
+
+  private String hotelRequestId(Long bookingId) {
+    return "booking-" + bookingId;
   }
 
   private String normalizeRequestId(String requestId) {
@@ -136,5 +239,9 @@ public class BookingServiceImpl implements BookingService {
 
   private boolean isAdmin(Jwt jwt) {
     return "ADMIN".equals(jwt.getClaimAsString("role"));
+  }
+
+  private ServiceUnavailableException unavailable(Throwable cause) {
+    return new ServiceUnavailableException("Hotel Service is unavailable", cause);
   }
 }

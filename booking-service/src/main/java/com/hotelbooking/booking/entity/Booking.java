@@ -47,6 +47,9 @@ public class Booking {
   @Column(name = "room_id")
   private Long roomId;
 
+  @Column(name = "auto_select", nullable = false)
+  private boolean autoSelect;
+
   @Column(name = "start_date", nullable = false)
   private LocalDate startDate;
 

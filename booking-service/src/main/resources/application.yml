@@ -26,3 +26,8 @@ eureka:
 jwt:
   secret: hotel-booking-secret-key-for-jwt-signing-2026-change-me
   expiration-minutes: 60
+
+hotel:
+  base-url: http://hotel-service
+  connect-timeout: 1s
+  read-timeout: 2s

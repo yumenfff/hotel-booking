@@ -9,12 +9,18 @@ import java.time.LocalDate;
 
 public record BookingCreateRequest(
     @Size(max = 100) String requestId,
-    @NotNull @Positive Long roomId,
+    @Positive Long roomId,
+    @NotNull Boolean autoSelect,
     @NotNull @FutureOrPresent LocalDate startDate,
     @NotNull LocalDate endDate) {
 
   @AssertTrue(message = "endDate must be after startDate")
   public boolean isDateRangeValid() {
     return startDate == null || endDate == null || startDate.isBefore(endDate);
+  }
+
+  @AssertTrue(message = "roomId is required when autoSelect is false")
+  public boolean isRoomSpecifiedWhenManualSelection() {
+    return Boolean.TRUE.equals(autoSelect) || roomId != null;
   }
 }

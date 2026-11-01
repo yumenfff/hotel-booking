@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.hotelbooking.booking.client.HotelClient;
 import com.hotelbooking.booking.entity.Booking;
 import com.hotelbooking.booking.entity.BookingStatus;
 import com.hotelbooking.booking.entity.Role;
@@ -14,8 +15,11 @@ import com.hotelbooking.booking.entity.User;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 class BookingControllerTest extends AbstractIntegrationTest {
+
+  @MockitoBean private HotelClient hotelClient;
 
   @Test
   void create_validRequest_returnsConfirmedBooking() throws Exception {
@@ -205,6 +209,7 @@ class BookingControllerTest extends AbstractIntegrationTest {
     Booking booking = new Booking();
     booking.setUser(user);
     booking.setRoomId(roomId);
+    booking.setAutoSelect(false);
     booking.setStartDate(LocalDate.now().plusDays(startOffset));
     booking.setEndDate(LocalDate.now().plusDays(endOffset));
     booking.setStatus(BookingStatus.CONFIRMED);
@@ -214,7 +219,7 @@ class BookingControllerTest extends AbstractIntegrationTest {
 
   private static String request(Long roomId, String requestId, int startOffset, int endOffset) {
     return """
-      {"requestId":"%s","roomId":%s,"startDate":"%s","endDate":"%s"}
+      {"requestId":"%s","roomId":%s,"autoSelect":false,"startDate":"%s","endDate":"%s"}
       """
         .formatted(
             requestId,
