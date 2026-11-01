@@ -20,8 +20,35 @@ class GatewaySecurityTest {
         .exchange()
         .expectStatus()
         .isUnauthorized()
+        .expectHeader()
+        .exists("X-Trace-Id")
         .expectBody()
         .jsonPath("$.status")
         .isEqualTo(401);
+  }
+
+  @Test
+  void internalHotelEndpoint_isBlocked() {
+    webTestClient
+        .post()
+        .uri("/api/rooms/1/confirm-availability")
+        .exchange()
+        .expectStatus()
+        .isForbidden()
+        .expectHeader()
+        .exists("X-Trace-Id");
+  }
+
+  @Test
+  void suppliedTraceId_isReturned() {
+    webTestClient
+        .get()
+        .uri("/api/hotels")
+        .header("X-Trace-Id", "test-trace-id")
+        .exchange()
+        .expectStatus()
+        .isUnauthorized()
+        .expectHeader()
+        .valueEquals("X-Trace-Id", "test-trace-id");
   }
 }

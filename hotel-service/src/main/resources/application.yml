@@ -1,6 +1,10 @@
 server:
   port: 8081
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{traceId:-}] %logger{36} - %msg%n"
+
 spring:
   application:
     name: hotel-service

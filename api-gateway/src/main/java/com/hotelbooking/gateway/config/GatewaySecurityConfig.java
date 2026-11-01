@@ -35,6 +35,8 @@ public class GatewaySecurityConfig {
                 exchanges
                     .pathMatchers("/api/user/register", "/api/user/auth")
                     .permitAll()
+                    .pathMatchers("/api/rooms/*/confirm-availability", "/api/rooms/*/release")
+                    .permitAll()
                     .anyExchange()
                     .authenticated())
         .oauth2ResourceServer(

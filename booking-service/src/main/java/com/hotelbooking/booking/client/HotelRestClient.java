@@ -1,6 +1,8 @@
 package com.hotelbooking.booking.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.function.Supplier;
@@ -25,6 +27,8 @@ public class HotelRestClient implements HotelClient {
   private final RestClient restClient;
 
   @Override
+  @Retry(name = "hotel")
+  @CircuitBreaker(name = "hotel")
   public List<Long> findRecommendedRoomIds(LocalDate startDate, LocalDate endDate) {
     List<RoomPayload> rooms =
         execute(
@@ -44,6 +48,8 @@ public class HotelRestClient implements HotelClient {
   }
 
   @Override
+  @Retry(name = "hotel")
+  @CircuitBreaker(name = "hotel")
   public void confirmAvailability(
       Long roomId, String requestId, Long bookingId, LocalDate startDate, LocalDate endDate) {
     execute(
@@ -59,6 +65,7 @@ public class HotelRestClient implements HotelClient {
   }
 
   @Override
+  @Retry(name = "hotel-release")
   public void release(Long roomId, String requestId) {
     execute(
         "release [roomId=%d, requestId=%s]".formatted(roomId, requestId),

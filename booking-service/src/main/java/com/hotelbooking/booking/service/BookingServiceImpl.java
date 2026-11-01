@@ -17,6 +17,7 @@ import com.hotelbooking.booking.exception.ServiceUnavailableException;
 import com.hotelbooking.booking.mapper.BookingMapper;
 import com.hotelbooking.booking.repository.BookingRepository;
 import com.hotelbooking.booking.repository.UserRepository;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -169,7 +170,7 @@ public class BookingServiceImpl implements BookingService {
         throw new NotFoundException(ex.getMessage());
       }
       throw unavailable(ex);
-    } catch (HotelUnavailableException ex) {
+    } catch (HotelUnavailableException | CallNotPermittedException ex) {
       compensate(pending, roomId);
       bookingStateService.cancel(pending.getId(), ex.getMessage());
       throw unavailable(ex);

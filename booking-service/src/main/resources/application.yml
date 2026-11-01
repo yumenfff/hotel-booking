@@ -1,6 +1,10 @@
 server:
   port: 8082
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{traceId:-}] %logger{36} - %msg%n"
+
 spring:
   application:
     name: booking-service
@@ -31,3 +35,33 @@ hotel:
   base-url: http://hotel-service
   connect-timeout: 1s
   read-timeout: 2s
+
+resilience4j:
+  retry:
+    instances:
+      hotel:
+        max-attempts: 3
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - com.hotelbooking.booking.client.HotelUnavailableException
+      hotel-release:
+        max-attempts: 4
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - com.hotelbooking.booking.client.HotelUnavailableException
+  circuitbreaker:
+    instances:
+      hotel:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - com.hotelbooking.booking.client.HotelUnavailableException
