@@ -59,7 +59,7 @@ class BookingControllerTest extends AbstractIntegrationTest {
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
-        .andExpect(status().isCreated());
+        .andExpect(status().isOk());
 
     // then
     assertThat(bookingRepository.count()).isEqualTo(1);

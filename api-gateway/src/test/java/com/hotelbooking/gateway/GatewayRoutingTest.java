@@ -67,10 +67,28 @@ class GatewayRoutingTest {
     assertThat(receivedPath).hasValue("/api/user/auth");
   }
 
+  @Test
+  void routedResponse_containsSingleTraceIdHeader() {
+    // when / then
+    webTestClient
+        .post()
+        .uri("/api/user/auth")
+        .header("X-Trace-Id", "trace-dedupe")
+        .bodyValue("{\"username\":\"ivan\",\"password\":\"user123\"}")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectHeader()
+        .valueEquals("X-Trace-Id", "trace-dedupe");
+  }
+
   private static void respond(HttpExchange exchange) throws IOException {
     receivedPath.set(exchange.getRequestURI().getPath());
     byte[] response = "{\"routed\":true}".getBytes(StandardCharsets.UTF_8);
     exchange.getResponseHeaders().set("Content-Type", "application/json");
+    exchange
+        .getResponseHeaders()
+        .set("X-Trace-Id", exchange.getRequestHeaders().getFirst("X-Trace-Id"));
     exchange.sendResponseHeaders(200, response.length);
     try (var output = exchange.getResponseBody()) {
       output.write(response);

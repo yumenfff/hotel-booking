@@ -138,7 +138,7 @@ class BookingSagaTest extends AbstractIntegrationTest {
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
-        .andExpect(status().isCreated());
+        .andExpect(status().isOk());
 
     // then
     verify(hotelClient).confirmAvailability(any(), any(), any(), any(), any());

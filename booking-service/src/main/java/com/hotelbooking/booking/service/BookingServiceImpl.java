@@ -5,6 +5,7 @@ import com.hotelbooking.booking.client.HotelConflictException;
 import com.hotelbooking.booking.client.HotelRejectedException;
 import com.hotelbooking.booking.client.HotelUnavailableException;
 import com.hotelbooking.booking.dto.BookingCreateRequest;
+import com.hotelbooking.booking.dto.BookingCreateResult;
 import com.hotelbooking.booking.dto.BookingResponse;
 import com.hotelbooking.booking.dto.PageResponse;
 import com.hotelbooking.booking.entity.Booking;
@@ -47,7 +48,7 @@ public class BookingServiceImpl implements BookingService {
   private final BookingMapper bookingMapper;
 
   @Override
-  public BookingResponse create(BookingCreateRequest request, Jwt jwt) {
+  public BookingCreateResult create(BookingCreateRequest request, Jwt jwt) {
     Long userId = userId(jwt);
     User user =
         userRepository
@@ -58,7 +59,7 @@ public class BookingServiceImpl implements BookingService {
     Booking existing = bookingRepository.findByUserIdAndRequestId(userId, requestId).orElse(null);
     if (existing != null) {
       ensureSameRequest(existing, request);
-      return bookingMapper.toResponse(existing);
+      return replayed(existing);
     }
 
     List<Long> candidates = candidates(request);
@@ -79,7 +80,7 @@ public class BookingServiceImpl implements BookingService {
       Booking concurrent =
           bookingRepository.findByUserIdAndRequestId(userId, requestId).orElseThrow(() -> ex);
       ensureSameRequest(concurrent, request);
-      return bookingMapper.toResponse(concurrent);
+      return replayed(concurrent);
     }
 
     for (Long roomId : candidates) {
@@ -87,7 +88,8 @@ public class BookingServiceImpl implements BookingService {
         pending = bookingStateService.assignRoom(pending.getId(), roomId);
       }
       if (lockRoom(pending, roomId, request)) {
-        return bookingMapper.toResponse(confirmOrCompensate(pending, roomId));
+        Booking confirmed = confirmOrCompensate(pending, roomId);
+        return new BookingCreateResult(bookingMapper.toResponse(confirmed), true);
       }
     }
 
@@ -136,6 +138,10 @@ public class BookingServiceImpl implements BookingService {
     }
     bookingStateService.cancel(
         booking.getId(), isAdmin(jwt) ? "Cancelled by administrator" : "Cancelled by user");
+  }
+
+  private BookingCreateResult replayed(Booking booking) {
+    return new BookingCreateResult(bookingMapper.toResponse(booking), false);
   }
 
   private List<Long> candidates(BookingCreateRequest request) {

@@ -1,6 +1,7 @@
 package com.hotelbooking.booking.controller;
 
 import com.hotelbooking.booking.dto.BookingCreateRequest;
+import com.hotelbooking.booking.dto.BookingCreateResult;
 import com.hotelbooking.booking.dto.BookingResponse;
 import com.hotelbooking.booking.dto.PageResponse;
 import com.hotelbooking.booking.entity.BookingStatus;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -32,10 +34,11 @@ public class BookingController {
   private final BookingService bookingService;
 
   @PostMapping
-  @ResponseStatus(HttpStatus.CREATED)
-  public BookingResponse create(
+  public ResponseEntity<BookingResponse> create(
       @Valid @RequestBody BookingCreateRequest request, @AuthenticationPrincipal Jwt jwt) {
-    return bookingService.create(request, jwt);
+    BookingCreateResult result = bookingService.create(request, jwt);
+    HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
+    return ResponseEntity.status(status).body(result.booking());
   }
 
   @GetMapping

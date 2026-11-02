@@ -8,6 +8,8 @@ spring:
     gateway:
       server:
         webflux:
+          default-filters:
+            - DedupeResponseHeader=X-Trace-Id, RETAIN_FIRST
           routes:
             - id: booking-service
               uri: lb://booking-service
