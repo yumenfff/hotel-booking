@@ -300,7 +300,7 @@ mvn clean verify
 
 Форматирование кода выполняется командой `mvn spotless:apply`
 
-Всего 83 теста: Gateway (4), Hotel Service (29), Booking Service (50). Проверяются CRUD, JWT и роли, валидация,
+Всего 84 теста: Gateway (5), Hotel Service (29), Booking Service (50). Проверяются CRUD, JWT и роли, валидация,
 идемпотентность, сага, компенсация, retry, timeout, circuit breaker и конкурентные бронирования. Тесты не требуют
 запущенных сервисов: Eureka в них отключена, Hotel Service заменяется заглушкой или WireMock
 
