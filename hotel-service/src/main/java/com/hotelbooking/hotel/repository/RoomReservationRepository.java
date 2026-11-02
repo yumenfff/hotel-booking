@@ -35,4 +35,16 @@ public interface RoomReservationRepository extends JpaRepository<RoomReservation
       @Param("roomId") Long roomId,
       @Param("startDate") LocalDate startDate,
       @Param("endDate") LocalDate endDate);
+
+  @Query(
+      """
+          select rr from RoomReservation rr
+          join fetch rr.room r
+          where rr.status = com.hotelbooking.hotel.entity.ReservationStatus.HELD
+            and rr.startDate < :to
+            and rr.endDate > :from
+            and (:hotelId is null or r.hotel.id = :hotelId)
+          """)
+  List<RoomReservation> findHeldOverlapping(
+      @Param("from") LocalDate from, @Param("to") LocalDate to, @Param("hotelId") Long hotelId);
 }
